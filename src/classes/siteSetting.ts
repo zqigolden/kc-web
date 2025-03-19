@@ -92,7 +92,7 @@ export default class SiteSetting {
   public importAllDeck: boolean;
 
   /** 言語 */
-  public locale: 'ja' | 'en';
+  public locale: 'ja' | 'en' | 'cn';
 
   /** 艦娘 装備名を翻訳しないフラグ */
   public nameIsNotTranslate: boolean;
