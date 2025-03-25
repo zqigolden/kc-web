@@ -40,45 +40,68 @@ jobs:
           echo "local_ahead=$LOCAL_AHEAD" >> $GITHUB_OUTPUT
           echo "upstream_ahead=$UPSTREAM_AHEAD" >> $GITHUB_OUTPUT
           
-          if [ "$LOCAL_AHEAD" -gt 0 ]; then
-            echo "Local branch has $LOCAL_AHEAD commits ahead of upstream"
-            echo "should_sync=false" >> $GITHUB_OUTPUT
-          elif [ "$UPSTREAM_AHEAD" -gt 0 ]; then
+          if [ "$UPSTREAM_AHEAD" -gt 0 ]; then
             echo "Upstream has $UPSTREAM_AHEAD new commits"
             echo "should_sync=true" >> $GITHUB_OUTPUT
           else
-            echo "Branches are identical, no sync needed"
+            echo "No new commits in upstream to sync"
             echo "should_sync=false" >> $GITHUB_OUTPUT
           fi
-      
-      - name: Check if fast-forward is possible
-        id: check-ff
-        if: steps.check-branches.outputs.should_sync == 'true'
-        run: |
-          # 检查是否可以进行快进合并(无冲突)
-          if git merge-base --is-ancestor HEAD upstream/main; then
-            echo "Fast-forward merge is possible"
-            echo "can_ff=true" >> $GITHUB_OUTPUT
+          
+          if [ "$LOCAL_AHEAD" -gt 0 ]; then
+            echo "Local branch has $LOCAL_AHEAD commits ahead of upstream"
+            echo "has_local_commits=true" >> $GITHUB_OUTPUT
           else
-            echo "Cannot fast-forward merge, manual intervention needed"
-            echo "can_ff=false" >> $GITHUB_OUTPUT
+            echo "Local branch has no unique commits"
+            echo "has_local_commits=false" >> $GITHUB_OUTPUT
           fi
       
-      - name: Merge upstream changes if possible
-        if: steps.check-branches.outputs.should_sync == 'true' && steps.check-ff.outputs.can_ff == 'true'
+      - name: Try merge from upstream
+        id: try-merge
+        if: steps.check-branches.outputs.should_sync == 'true'
         run: |
-          # 使用快进合并，确保没有冲突
-          git merge upstream/main --ff-only
-          echo "Merged upstream changes into main branch"
+          # 创建临时分支进行测试合并
+          git checkout -b temp-merge-branch
+          
+          # 尝试合并上游更改
+          if git merge upstream/main --no-commit --no-ff; then
+            echo "Merge can be performed without conflicts"
+            echo "can_merge=true" >> $GITHUB_OUTPUT
+            # 取消合并，回到原来的状态
+            git merge --abort
+          else
+            echo "Merge would result in conflicts"
+            echo "can_merge=false" >> $GITHUB_OUTPUT
+            # 取消合并，回到原来的状态
+            git merge --abort
+          fi
+          
+          # 返回main分支
+          git checkout main
+          git branch -D temp-merge-branch
+      
+      - name: Perform merge if possible
+        if: steps.check-branches.outputs.should_sync == 'true' && steps.try-merge.outputs.can_merge == 'true'
+        run: |
+          # 根据是否有本地提交选择合并策略
+          if [ "${{ steps.check-branches.outputs.has_local_commits }}" == "true" ]; then
+            # 如果有本地提交，使用常规合并保留分支历史
+            git merge upstream/main --no-edit
+            echo "Merged upstream changes into main branch while preserving local commits"
+          else
+            # 如果没有本地提交，使用快进合并
+            git merge upstream/main --ff-only
+            echo "Fast-forward merged upstream changes into main branch"
+          fi
       
       - name: Push changes if merged
-        if: steps.check-branches.outputs.should_sync == 'true' && steps.check-ff.outputs.can_ff == 'true'
+        if: steps.check-branches.outputs.should_sync == 'true' && steps.try-merge.outputs.can_merge == 'true'
         run: |
           git push origin main
           echo "Pushed changes to main branch"
       
       - name: Generate commit details
-        if: steps.check-branches.outputs.should_sync == 'true' && steps.check-ff.outputs.can_ff == 'false'
+        if: steps.check-branches.outputs.should_sync == 'true' && steps.try-merge.outputs.can_merge == 'false'
         run: |
           echo "# 此处将由GitHub Actions自动填充" > commit_details.txt
           echo "\`\`\`" >> commit_details.txt
@@ -91,7 +114,7 @@ jobs:
           sed -i "s|# 此处将由GitHub Actions自动填充|$(cat commit_details.txt)|g" temp_issue.md
       
       - name: Create notification issue if manual merge needed
-        if: steps.check-branches.outputs.should_sync == 'true' && steps.check-ff.outputs.can_ff == 'false'
+        if: steps.check-branches.outputs.should_sync == 'true' && steps.try-merge.outputs.can_merge == 'false'
         uses: peter-evans/create-issue-from-file@v4
         with:
           title: 需要手动合并上游仓库更新
