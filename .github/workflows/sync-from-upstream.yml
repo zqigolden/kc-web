@@ -1,0 +1,99 @@
+name: Sync from Upstream Main Branch
+
+on:
+  # 定时触发，每天凌晨2点运行
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # 手动触发
+  workflow_dispatch:
+
+jobs:
+  sync-from-upstream:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: main
+      
+      - name: Set Git user
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+      
+      - name: Add upstream repository
+        run: |
+          git remote add upstream https://github.com/noro6/kc-web.git
+          git fetch upstream main
+      
+      - name: Check local and upstream relationship
+        id: check-branches
+        run: |
+          # 检查本地main分支是否有领先上游main分支的提交
+          LOCAL_AHEAD=$(git rev-list --count upstream/main..HEAD)
+          # 检查上游main分支是否有本地main分支没有的提交
+          UPSTREAM_AHEAD=$(git rev-list --count HEAD..upstream/main)
+          
+          echo "local_ahead=$LOCAL_AHEAD" >> $GITHUB_OUTPUT
+          echo "upstream_ahead=$UPSTREAM_AHEAD" >> $GITHUB_OUTPUT
+          
+          if [ "$LOCAL_AHEAD" -gt 0 ]; then
+            echo "Local branch has $LOCAL_AHEAD commits ahead of upstream"
+            echo "should_sync=false" >> $GITHUB_OUTPUT
+          elif [ "$UPSTREAM_AHEAD" -gt 0 ]; then
+            echo "Upstream has $UPSTREAM_AHEAD new commits"
+            echo "should_sync=true" >> $GITHUB_OUTPUT
+          else
+            echo "Branches are identical, no sync needed"
+            echo "should_sync=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Check if fast-forward is possible
+        id: check-ff
+        if: steps.check-branches.outputs.should_sync == 'true'
+        run: |
+          # 检查是否可以进行快进合并(无冲突)
+          if git merge-base --is-ancestor HEAD upstream/main; then
+            echo "Fast-forward merge is possible"
+            echo "can_ff=true" >> $GITHUB_OUTPUT
+          else
+            echo "Cannot fast-forward merge, manual intervention needed"
+            echo "can_ff=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Merge upstream changes if possible
+        if: steps.check-branches.outputs.should_sync == 'true' && steps.check-ff.outputs.can_ff == 'true'
+        run: |
+          # 使用快进合并，确保没有冲突
+          git merge upstream/main --ff-only
+          echo "Merged upstream changes into main branch"
+      
+      - name: Push changes if merged
+        if: steps.check-branches.outputs.should_sync == 'true' && steps.check-ff.outputs.can_ff == 'true'
+        run: |
+          git push origin main
+          echo "Pushed changes to main branch"
+      
+      - name: Generate commit details
+        if: steps.check-branches.outputs.should_sync == 'true' && steps.check-ff.outputs.can_ff == 'false'
+        run: |
+          echo "# 此处将由GitHub Actions自动填充" > commit_details.txt
+          echo "\`\`\`" >> commit_details.txt
+          git log --pretty=format:"%h %s (%an, %ar)" HEAD..upstream/main >> commit_details.txt
+          echo "\`\`\`" >> commit_details.txt
+          
+          # 创建临时模板文件
+          cp .github/ISSUE_TEMPLATE/manual-merge-needed.md temp_issue.md
+          # 替换占位符
+          sed -i "s|# 此处将由GitHub Actions自动填充|$(cat commit_details.txt)|g" temp_issue.md
+      
+      - name: Create notification issue if manual merge needed
+        if: steps.check-branches.outputs.should_sync == 'true' && steps.check-ff.outputs.can_ff == 'false'
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: 需要手动合并上游仓库更新
+          content-filepath: temp_issue.md
+          labels: merge-conflict, help-wanted 
