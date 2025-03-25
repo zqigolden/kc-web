@@ -6,7 +6,8 @@
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "update-data": "node scripts/update-data-files.js"
   },
   "dependencies": {
     "@vue/composition-api": "^1.4.3",
@@ -21,6 +22,7 @@
     "html2canvas": "^1.4.1",
     "lodash": "^4.17.21",
     "lz-string": "^1.4.4",
+    "mkdirp": "^3.0.1",
     "party-js": "^2.2.0",
     "uuid": "^9.0.1",
     "vue": "^2.6.11",
