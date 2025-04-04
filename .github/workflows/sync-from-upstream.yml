@@ -12,12 +12,17 @@ jobs:
   sync-from-upstream:
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: write
+      issues: write
+
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
           ref: main
+          token: ${{ secrets.WORKFLOW_PAT }}
       
       - name: Set Git user
         run: |
@@ -97,7 +102,7 @@ jobs:
       - name: Push changes if merged
         if: steps.check-branches.outputs.should_sync == 'true' && steps.try-merge.outputs.can_merge == 'true'
         run: |
-          git push origin main
+          git push https://x-access-token:${{ secrets.WORKFLOW_PAT }}@github.com/${{ github.repository }}.git main
           echo "Pushed changes to main branch"
       
       - name: Generate commit details
@@ -117,6 +122,7 @@ jobs:
         if: steps.check-branches.outputs.should_sync == 'true' && steps.try-merge.outputs.can_merge == 'false'
         uses: peter-evans/create-issue-from-file@v4
         with:
+          token: ${{ secrets.WORKFLOW_PAT }}
           title: 需要手动合并上游仓库更新
           content-filepath: temp_issue.md
           labels: merge-conflict, help-wanted 
