@@ -6,36 +6,44 @@ on:
     - cron: '0 3 * * *'
   workflow_dispatch:  # 允许手动触发
 
+# 确保工作流有写入内容的权限
+permissions:
+  contents: write
+
 jobs:
   update-data-files:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           ref: main
-      
+          # 在 checkout 步骤使用 PAT
+          token: ${{ secrets.WORKFLOW_PAT }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run update data files script
         id: update-files
         run: |
           node scripts/update-data-files.js
           # 检查文件是否有变更
-          if [[ -n $(git status -s | grep "public/master_bk") ]]; then
+          if [[ -n $(git status --porcelain public/master_bk/) ]]; then
+            echo "Detected changes in public/master_bk/"
             echo "files_changed=true" >> $GITHUB_OUTPUT
           else
+            echo "No changes detected in public/master_bk/"
             echo "files_changed=false" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Commit changes if any
         if: steps.update-files.outputs.files_changed == 'true'
         run: |
@@ -43,6 +51,5 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add public/master_bk/
           git commit -m "Update master.json and cells.json data files [skip ci]"
-          git push origin main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          git push https://x-access-token:${{ secrets.WORKFLOW_PAT }}@github.com/${{ github.repository }}.git main
+          echo "Push completed."
