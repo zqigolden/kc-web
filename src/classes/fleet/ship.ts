@@ -562,7 +562,7 @@ export default class Ship implements ShipBase {
     }
 
     // 空母夜襲発動判定
-    this.enabledAircraftNightAttack = this.data.isCV && ([545, 599, 610, 883].includes(this.data.id) || (items.some((w) => w.data.id === 258 || w.data.id === 259)));
+    this.enabledAircraftNightAttack = this.data.isCV && ([545, 599, 610, 883, 1008].includes(this.data.id) || (items.some((w) => w.data.id === 258 || w.data.id === 259)));
 
     if (this.enabledAircraftNightAttack) {
       // 空母夜襲火力に置き換え
@@ -668,8 +668,8 @@ export default class Ship implements ShipBase {
       sumRemodelBonusFirePower += items[i].bonusFire;
     }
 
-    if (ship.data.isCV || ([352, 717].includes(ship.data.id) && items.some((v) => v.data.isAttacker && v.data.apiTypeId !== 11 && !v.data.isAswPlane))) {
-      // 空母系 or (速吸 or 山汐丸 + 艦攻艦爆)
+    if (ship.data.isCV || ([352, 717, 1008].includes(ship.data.id) && items.some((v) => v.data.isAttacker && v.data.apiTypeId !== 11 && !v.data.isAswPlane))) {
+      // 空母系 or (速吸 or 山汐丸 + 艦攻艦爆 or しまね丸 + 艦攻艦爆)
       dayBattleFirePower = Math.floor(1.5 * (ship.displayStatus.firePower + ship.displayStatus.torpedo + Math.floor(1.3 * ship.displayStatus.bomber) + sumRemodelBonusFirePower + correct)) + 55;
     } else {
       dayBattleFirePower = ship.displayStatus.firePower + sumRemodelBonusFirePower + correct + 5;
@@ -1573,7 +1573,7 @@ export default class Ship implements ShipBase {
    * @memberof AerialFirePowerCalculator
    */
   public getAircraftNightAttackPrePower(contactBonus = 0, isLandBase = false): number {
-    // 艦娘の素火力 + 熟練甲板ボーナス(火力青字 + 爆装青地)
+    // 艦娘の素火力 + 熟練甲板ボーナス(火力青字 + 爆装青字)
     let power = this.data.fire + this.nightAttackCrewFireBonus + this.nightAttackCrewBomberBonus;
     if (this.itemBonusStatus.torpedo) {
       // 雷装ボーナス
@@ -1594,7 +1594,7 @@ export default class Ship implements ShipBase {
         power += (item.data.fire + (item.data.isTorpedoAttacker ? item.data.torpedo : item.data.bomber));
       }
       const totalStatus = item.data.fire + item.data.torpedo + item.data.bomber + item.data.asw;
-      if (item.data.iconTypeId === 45 || item.data.iconTypeId === 46) {
+      if (item.data.iconTypeId === 45 || item.data.iconTypeId === 46 || item.data.iconTypeId === 58) {
         // 夜間飛行機搭載補正 = A(3.0) × 搭載数 + B(0.45) × (火力 + 雷装 + 爆装 + 対潜) × √(搭載数) + √(★)
         power += (3 * item.fullSlot + 0.45 * totalStatus * Math.sqrt(item.fullSlot) + Math.sqrt(item.remodel));
       } else {
