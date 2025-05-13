@@ -870,7 +870,7 @@ export default class Const {
    * @static
    * @memberof Const
    */
-  public static readonly MAX_LEVEL = 180;
+  public static readonly MAX_LEVEL = 185;
 
   /**
    * 対空射撃回避
@@ -1079,6 +1079,11 @@ export default class Const {
    * @memberof Const
    */
   public static readonly LEVEL_BORDERS = [
+    { lv: 185, req: 15800000 },
+    { lv: 184, req: 14800000 },
+    { lv: 183, req: 14000000 },
+    { lv: 182, req: 13600000 },
+    { lv: 181, req: 13200000 },
     { lv: 180, req: 13000000 },
     { lv: 179, req: 12100000 },
     { lv: 178, req: 11600000 },
