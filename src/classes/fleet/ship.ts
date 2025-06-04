@@ -921,7 +921,7 @@ export default class Ship implements ShipBase {
         }
       } else if (this.data.id === 894 || this.data.id === 899) {
         // 鳳翔改二 / 戦
-        if (hasTurbine && newModelBoilerCount && totalBoilerCount >= 2) {
+        if (hasTurbine && newModelBoilerCount >= 2) {
           // タービン + 新型缶x2 => 最速
           return 20;
         }
@@ -949,8 +949,8 @@ export default class Ship implements ShipBase {
         }
       } else if (this.data.type2 === 109 || this.data.id === 979) {
         // 潜高型, 稲木改二
-        if (hasTurbine && newModelBoilerCount) {
-          // タービン + 新型缶 => 高速+
+        if (hasTurbine && (newModelBoilerCount || totalBoilerCount >= 3)) {
+          // タービン + (新型缶 or いずれかの缶x3) => 高速+
           return 15;
         }
         if (newModelBoilerCount || (hasTurbine && totalBoilerCount)) {
@@ -1256,8 +1256,8 @@ export default class Ship implements ShipBase {
       return false;
     }
 
-    if ([141, 478, 624, 394, 893, 681, 906, 920].includes(this.data.id) || (this.data.type2 === 91 && this.data.id !== 941 && this.data.id !== 942)) {
-      // 無条件発動 順に五十鈴改二 龍田改二 夕張改二丁 J級改 Samuel B.Roberts(改 or MK.II) Fletcher級 (除Heywood Richard)
+    // 無条件先制対潜 初期値50
+    if (this.data.minAsw >= 50) {
       return true;
     }
 
