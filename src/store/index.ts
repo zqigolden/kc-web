@@ -17,18 +17,22 @@ import EnemyMaster from '@/classes/enemy/enemyMaster';
 import * as Master from '@/classes/interfaces/master';
 import OutputHistory from '@/classes/saveData/outputHistory';
 import CellMaster, { RawCell } from '@/classes/enemy/cellMaster';
-import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import { UploadedPreset } from '@/classes/interfaces/uploadedPreset';
 import ShipStockDiff from '@/classes/fleet/shipStockDiff';
 import AirbaseInfo from '@/classes/airbase/airbaseInfo';
 import Airbase from '@/classes/airbase/airbase';
+
+// Firebase Storage 公開URL（署名なしでアクセス可能、ブラウザキャッシュが効く）
+const FIREBASE_STORAGE_BASE = 'https://firebasestorage.googleapis.com/v0/b/development-74af0.appspot.com/o';
+const MASTER_JSON_URL = `${FIREBASE_STORAGE_BASE}/master.json?alt=media`;
+const CELLS_JSON_URL = `${FIREBASE_STORAGE_BASE}/cells.json?alt=media`;
 
 Vue.use(Vuex);
 
 export default new Vuex.Store({
   state: {
     /** サイトバージョン */
-    siteVersion: '2.49.13',
+    siteVersion: '2.49.16',
     /** 装備マスタデータ */
     items: [] as ItemMaster[],
     /** 艦船マスタデータ */
@@ -400,21 +404,10 @@ export default new Vuex.Store({
         context.commit('setCells', cells);
       });
 
-      // マスタ問い合わせ
-      getDownloadURL(ref(getStorage(), 'cells.json'))
-        .then((url) => {
-          getCellJson(url)
-            .then(() => {
-              context.commit('completed', true);
-            })
-            .catch((error) => {
-              console.error(error);
-              // バックアップデータを読み出す
-              getCellJson('./master_bk/cells.json').then(() => {
-                console.log('セル(backup)利用');
-                context.commit('completed', true);
-              });
-            });
+      // マスタ問い合わせ（公開URLを使用してブラウザキャッシュを活用）
+      getCellJson(CELLS_JSON_URL)
+        .then(() => {
+          context.commit('completed', true);
         })
         .catch((error) => {
           console.error(error);
@@ -443,20 +436,10 @@ export default new Vuex.Store({
         context.commit('setAreaCount', master.area_count);
       });
 
-      getDownloadURL(ref(getStorage(), 'master.json'))
-        .then((url) => {
-          getMasterJson(url)
-            .then(() => {
-              context.commit('completed', true);
-            })
-            .catch((error) => {
-              console.error(error);
-              // バックアップデータを読み出す
-              getMasterJson('./master_bk/master.json').then(() => {
-                console.log('マスター(backup)利用');
-                context.commit('completed', true);
-              });
-            });
+      // 公開URLを使用してブラウザキャッシュを活用
+      getMasterJson(MASTER_JSON_URL)
+        .then(() => {
+          context.commit('completed', true);
         })
         .catch((error) => {
           console.error(error);
